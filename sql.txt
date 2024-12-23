@@ -262,5 +262,197 @@ with Report as (
 Select employee_id, name, reports_count, average_age 
 from Employees inner join Report
 on Employees.employee_id = Report.reports_to
-order by employee_id; 
+order by employee_id;
 
+1789. Primary Department for Each Employee:
+with Dept as (
+    Select employee_id, 
+    count(department_id) as dept_count
+    from Employee
+    group by employee_id
+)
+Select Employee.employee_id, Employee.department_id
+from Employee inner join Dept
+on Employee.employee_id = Dept.employee_id
+where dept_count = 1 or primary_flag = 'Y';
+
+610. Triangle Judgement:
+Select x, y, z,
+(case when x+y > z and y+z > x and z+x>y then 'Yes'
+else 'No'
+end) as triangle
+from Triangle;
+
+180. Consecutive Numbers:
+Select distinct l1.num as ConsecutiveNums
+from Logs as l1 inner join Logs as l2 inner join Logs as l3
+on l1.num = l2.num and l2.num = l3.num
+where l2.id - l1.id = 1 and l3.id - l2.id = 1;
+
+1164. Product Price at a Given Date:
+Select product_id, 10 as price
+from Products
+group by product_id having min(change_date) > '2019-08-16'
+union all
+Select product_id, new_price as price
+from Products where (product_id, change_date) in (
+    Select product_id, max(change_date)
+    from Products
+    where change_date <= '2019-08-16'
+    group by product_id
+)
+
+1204. Last Person to Fit in the Bus:
+with Cumulative_Sum as (
+    Select person_id, person_name, 
+    sum(weight) over (order by turn) as cs
+    from Queue
+), Target as (
+    Select person_name, cs from Cumulative_Sum 
+    where cs <= 1000
+)
+Select distinct first_value(person_name) over (order by cs desc) as person_name from Target;
+
+1907. Count Salary Categories:
+Select 'Low Salary' as category,
+count(*) as accounts_count
+from Accounts
+where income < 20000
+union all
+Select 'Average Salary' as category,
+count(*) as accounts_count
+from Accounts
+where income >= 20000 and income <= 50000
+union all
+Select 'High Salary' as category,
+count(*) as accounts_count
+from Accounts
+where income > 50000;
+
+1978. Employees Whose Manager Left the Company:
+Select employee_id
+from Employees
+where salary < 30000
+and manager_id not in (Select employee_id from Employees)
+order by employee_id;
+
+626. Exchange Seats:
+Select 
+case when id % 2 = 1 and id < (Select max(id) from Seat) then id + 1
+when id % 2 = 0 then id - 1
+else id end as id,
+student
+from Seat
+order by id;
+
+1341. Movie Rating:
+with Rating_Counter as (
+    Select MovieRating.user_id, name, count(rating) as cnt,
+    max(count(rating)) over () as greatest
+    from MovieRating inner join Users 
+    on MovieRating.user_id = Users.user_id 
+    group by user_id
+), Avg_Rating_Counter as (
+    Select MovieRating.movie_id, title, avg(rating) as avg,
+    max(avg(rating)) over () as greatest
+    from MovieRating inner join Movies 
+    on MovieRating.movie_id = Movies.movie_id
+    where date_format(created_at, '%Y-%m') = '2020-02'
+    group by MovieRating.movie_id
+), Highest_Rating as (
+    Select dense_rank() over (order by name) as rnk, name
+    from Rating_Counter where cnt = greatest
+), Avg_Highest_Rating as (
+    Select dense_rank() over (order by title) as rnk, title
+    from Avg_Rating_Counter where avg = greatest
+)
+Select name as results from Highest_rating where rnk = 1
+union all
+Select title as results from Avg_Highest_Rating where rnk = 1;
+
+1321. Restaurant Growth:
+with Date_mod as ( 
+    Select date_add(visited_on, interval 6 day) as visited_on
+    from Customer
+), Final_date as (
+    Select distinct Date_mod.visited_on as visited_on 
+    from Date_mod inner join Customer 
+    on Date_mod.visited_on = Customer.visited_on
+)
+Select Final_date.visited_on, sum(amount) as amount,
+round(sum(amount)/7, 2) as average_amount 
+from Customer, Final_date 
+where Final_date.visited_on >= Customer.visited_on and datediff(Final_date.visited_on,Customer.visited_on) < 7 
+and datediff(Final_date.visited_on,Customer.visited_on) >= 0
+group by Final_date.visited_on;
+
+602. Friend Requests II: Who Has the Most Friends:
+with ids as (
+    Select requester_id as id from RequestAccepted
+    union all
+    Select accepter_id as id from RequestAccepted
+)
+Select id, count(id) as num
+from ids
+group by id
+order by count(id) desc
+limit 1
+
+585. Investments in 2016:
+Select round(sum(tiv_2016), 2) as tiv_2016
+from Insurance
+where tiv_2015 in (Select tiv_2015 from insurance group by tiv_2015 having count(*) > 1)
+and (lat, lon) in (Select lat, lon from insurance group by lat,lon having count(*) = 1);
+
+1667. Fix Names in a Table:
+Select user_id, 
+concat(upper(substr(name,1,1)),lower(substr(name,2))) as name
+from Users
+order by user_id;
+
+1527. Patients With a Condition:
+Select patient_id, patient_name, conditions
+from Patients
+where conditions REGEXP '^(([A-Za-z0-9]* )*)?DIAB1';
+
+196. Delete Duplicate Emails:
+Delete P1 
+from Person P1 inner join (Select min(id) as id, email from Person group by email) as P2 
+on P1.email = P2.email 
+where P1.id > P2.id;
+
+176. Second Highest Salary:
+with Sorted as (
+    Select distinct salary,
+    row_number() over (order by salary desc) as num
+    from Employee
+    group by salary
+)
+Select 
+case when max(num) > 1 then max(case when num = 2 then salary end)
+else null end as SecondHighestSalary
+from Sorted;
+
+1484. Group Sold Products By The Date:
+Select sell_date,
+count(distinct product) as num_sold,
+group_concat(distinct product order by product separator ',') as products
+from Activities
+group by sell_date
+order by sell_date;
+
+1327. List the Products Ordered in a Period:
+with filter_order as (
+    Select product_id, sum(unit) as unit
+    from Orders
+    where date_format(order_date, '%Y-%m') = '2020-02'
+    group by product_id
+)
+Select product_name, unit
+from Products inner join filter_order
+on Products.product_id = filter_order.product_id
+where unit >= 100;
+
+1517. Find Users With Valid E-Mails:
+Select user_id, name, mail
+from Users where mail REGEXP '^[A-Za-z]([A-Za-z0-9\_\.\-])*(@leetcode[\.]com)$';
